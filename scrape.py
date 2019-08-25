@@ -1,3 +1,4 @@
+#!/Users/Alex/.virtualenvs/bardsong/bin/python
 from typing import Tuple, List
 import re
 import argparse
@@ -70,9 +71,9 @@ def get_likes() -> Tuple[List[str], List[float]]:
 
     names = [name.contents[0].contents[0] for name in names]
     likes = [float(like.contents[1]) for like in likes]
-    report_str = '\n'.join(['{} likes for {}'.format(like, episode) for like, episode in zip(likes, names)])
+    report_str = ' | '.join(['{}: {} likes'.format(episode.split()[0], like) for like, episode in zip(likes, names)])
 
-    logger.info('Found %s', report_str)
+    logger.info('Found %s', report_str.encode('utf-8'))
 
     return names, likes
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     logger.addHandler(fh)
 
     # Get dates of sent emails from log file
-    with open(LOG_FILE, 'r') as fin:
+    with open(LOG_FILE, 'r', encoding='utf-8') as fin:
         lines = fin.readlines()
 
     lines = [line for line in lines if 'email' in line] # Only save log lines saying an email was sent
