@@ -186,6 +186,7 @@ if __name__ == '__main__':
     with open(LOG_FILE, 'r') as fin:
         lines = fin.readlines()
 
+    lines = [line for line in lines if 'email' in line] # Only save log lines saying an email was sent
     dates = {dt.datetime.strptime(line[0:10], '%Y-%m-%d').date() for line in lines}
 
     logger.info('Launching scraping script')
