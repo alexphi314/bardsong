@@ -1,5 +1,5 @@
 #!/Users/Alex/.virtualenvs/bardsong/bin/python
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 import re
 import argparse
 import pickle
@@ -10,6 +10,7 @@ import ssl
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+from copy import deepcopy
 
 import requests
 from bs4 import BeautifulSoup
@@ -22,6 +23,7 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 BASE_URL = 'https://www.webtoons.com/en/challenge/bardsong/list?title_no=305507'
+BASELINE_COLUMN_NAMES = ['Times', 'Subscribers', 'Views', 'Stars', 'Likes']
 
 def convert_time(time) -> dt.datetime:
     """
@@ -30,7 +32,7 @@ def convert_time(time) -> dt.datetime:
     :param time: input time
     :return: time in datetime format
     """
-    return dt.datetime.strptime(str(time), '%Y-%m-%d %H:%M:%S.%f')
+    return dt.datetime.strptime(str(time)[:26], '%Y-%m-%d %H:%M:%S.%f')
 
 def get_stats() -> Tuple[float, float, float]:
     """
@@ -105,15 +107,15 @@ def plot_stats(data: pd.DataFrame, names: List[str]) -> None:
     plt.savefig('stats.png')
 
     plt.subplot(211)
-    likes_data = np.array(data['Likes'].to_list())
-    for col in range(0, np.shape(likes_data)[1]):
-        plt.plot(times, likes_data[:, col], label=names[col].split()[0])
+    episode_columns = [column for column in data.columns if column not in BASELINE_COLUMN_NAMES]
+    for episode in episode_columns:
+        times_clean, data_clean = zip(*filter(lambda x: not np.isnan(x[1]), zip(times, data[episode])))
+        plt.plot(times_clean, data_clean, label=episode.split()[0])
     plt.title('Number of Episode Likes')
     plt.legend(loc='center left')
 
     plt.subplot(212)
-    sums = [sum(likes_data[row, :]) for row in range(0, np.shape(likes_data)[0])]
-    plt.plot(times, sums)
+    plt.plot(times, data['Likes'])
     plt.title('Number of Total Likes')
 
     # Format plot
@@ -195,15 +197,18 @@ if __name__ == '__main__':
     # Fetch stats
     subs, views, stars = get_stats()
     names, likes = get_likes()
-    data = pd.DataFrame(data=[[dt.datetime.now(), subs, views, stars, likes]],
-                        columns=['Times', 'Subscribers', 'Views', 'Stars', 'Likes'])
+
+    col_names = deepcopy(BASELINE_COLUMN_NAMES)
+    col_names += names
+    input_data = [dt.datetime.now(), subs, views, stars, sum(likes)]
+    input_data += likes
+    data = pd.DataFrame(data=[input_data], columns=col_names)
 
     logger.info('Found stats: %s subscribers, %s views, %s rating', subs, views, stars)
 
     # Load historical stats
     try:
-        with open('Data/trend.pickle', 'rb') as fin:
-            old_data = pickle.load(fin)
+        old_data = pd.read_csv('Data/trend.csv', index_col=0)
 
         # Add filler data columns to old data if they don't already exist
         if not all([col1 == col2 for col1, col2 in zip(data.columns, old_data.columns)]):
@@ -211,7 +216,7 @@ if __name__ == '__main__':
             for column in add_columns:
                 old_data[column] = 0
 
-        data = pd.concat([data, old_data])
+        data = pd.concat([data, old_data], ignore_index=True, axis=0)
     except Exception as e:
         logger.warning('No historical data found')
 
@@ -221,8 +226,7 @@ if __name__ == '__main__':
 
     # Save stats
     if not NO_SAVE:
-        with open('Data/trend.pickle', 'wb') as fout:
-            pickle.dump(data, fout)
+        data.to_csv('Data/trend.csv')
 
     # Email stats
     if not dt.datetime.now().date() in dates or SEND:
