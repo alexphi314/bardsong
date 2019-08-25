@@ -197,7 +197,7 @@ if __name__ == '__main__':
     data = pd.DataFrame(data=[[dt.datetime.now(), subs, views, stars, likes]],
                         columns=['Times', 'Subscribers', 'Views', 'Stars', 'Likes'])
 
-    logger.info('Found stats: %s subsribers, %s views, %s rating', subs, views, stars)
+    logger.info('Found stats: %s subscribers, %s views, %s rating', subs, views, stars)
 
     # Load historical stats
     try:
