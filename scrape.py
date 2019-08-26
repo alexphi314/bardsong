@@ -91,15 +91,15 @@ def plot_stats(data: pd.DataFrame, names: List[str]) -> None:
     # Plot overall metrics
     plt.subplot(311)
     plt.plot(times, data['Subscribers'])
-    plt.title('Subscriber Count')
+    plt.title('Subscriber Count ({:.0f})'.format(data.iloc[0]['Subscribers']))
 
     plt.subplot(312)
     plt.plot(times, data['Views'], 'r')
-    plt.title('Number of Views')
+    plt.title('Number of Views ({:.0f})'.format(data.iloc[0]['Views']))
 
     plt.subplot(313)
     plt.plot(times, data['Stars'], 'g')
-    plt.title('Rating (Number of Stars)')
+    plt.title('Rating ({:.2f})'.format(data.iloc[0]['Stars']))
 
     # Format plot
     plt.gcf().autofmt_xdate()
@@ -116,7 +116,7 @@ def plot_stats(data: pd.DataFrame, names: List[str]) -> None:
 
     plt.subplot(212)
     plt.plot(times, data['Likes'])
-    plt.title('Number of Total Likes')
+    plt.title('Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
 
     # Format plot
     plt.gcf().autofmt_xdate()
