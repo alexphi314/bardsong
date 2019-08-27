@@ -34,6 +34,25 @@ def convert_time(time) -> dt.datetime:
     """
     return dt.datetime.strptime(str(time)[:26], '%Y-%m-%d %H:%M:%S.%f')
 
+def convert_string(raw_str: str) -> float:
+    """
+    Convert strings with 'K' or 'M' in them to actual float values
+
+    :param raw_str: input string, i.e. 1.1k
+    :return: float representation of string
+    """
+    # Convert views from string to float if K or M modifier included
+    views_re = re.compile('(?P<start>.+)(?P<modifier>[km])', re.IGNORECASE)
+    match = views_re.search(raw_str.lower())
+    if match and match.group('modifier') == 'k':
+        val = float(match.group('start')) * 1000
+    elif match and match.group('modifier') == 'm':
+        val = float(match.group('start')) * 1e6
+    else:
+        val = float(raw_str)
+
+    return val
+
 def get_stats() -> Tuple[float, float, float]:
     """
     Fetch the stats for the comic. Return number of subs, views, and star rating
@@ -45,19 +64,12 @@ def get_stats() -> Tuple[float, float, float]:
     soup = BeautifulSoup(resp.text, 'html.parser')
     stats = soup.findAll('ul', {'class': 'grade_area'})[0].findAll('em')
 
-    subs = float(stats[0].contents[0])
+    subs = stats[0].contents[0]
     views = stats[1].contents[0]
     stars = float(stats[2].contents[0])
 
-    # Convert views from string to float if K or M modifier included
-    views_re = re.compile('(?P<start>.+)(?P<modifier>[km])', re.IGNORECASE)
-    match = views_re.search(views.lower())
-    if match and match.group('modifier') == 'k':
-        views = float(match.group('start')) * 1000
-    elif match and match.group('modifier') == 'm':
-        views = float(match.group('start')) * 1e6
-    else:
-        views = float(views)
+    subs = convert_string(subs)
+    views = convert_string(views)
 
     return subs, views, stars
 
@@ -79,12 +91,11 @@ def get_likes() -> Tuple[List[str], List[float]]:
 
     return names, likes
 
-def plot_stats(data: pd.DataFrame, names: List[str]) -> None:
+def plot_stats(data: pd.DataFrame) -> None:
     """
     Plot the metrics and save a figure.
 
     :param data: dataframe containing times, subs, views, and stars
-    :param names: episode names
     """
     times = [convert_time(time) for time in data['Times']]
 
@@ -221,7 +232,7 @@ if __name__ == '__main__':
         logger.warning('No historical data found')
 
     # Plot stats
-    plot_stats(data, names)
+    plot_stats(data)
     logger.debug('Plotted stats')
 
     # Save stats
