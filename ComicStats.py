@@ -113,7 +113,7 @@ class ComicStats:
             self.logger.debug('Saved data to {}'.format(file_dest))
 
         # Plot stats
-        self._plot_stats(self.data, '')
+        self._plot_stats(self.data)
 
         # Plot daily change
         times = [convert_time(time) for time in self.data['Times']]
@@ -125,7 +125,7 @@ class ComicStats:
 
         # Format daily change data
         rows = daily_change_data.index
-        ref_time = daily_change_data.iloc[0]['Times']
+        ref_time = daily_change_data.iloc[indices[0]]['Times']
         for (rindx, row), indx in zip(daily_change_data.iterrows(), range(0, len(rows))):
             if indx == len(rows) - 1:
                 break
@@ -143,7 +143,7 @@ class ComicStats:
 
         daily_change_data = daily_change_data.drop(daily_change_data.tail(1).index)
 
-        self._plot_stats(daily_change_data, 'daily_change_')
+        self._plot_daily_stats(daily_change_data, 'daily_change_', ref_time.strftime('%Y-%m-%d'))
 
     def _get_stats(self) -> Tuple[float, float, float]:
         """
@@ -179,55 +179,83 @@ class ComicStats:
 
         return names, likes
 
-    def _plot_stats(self, data: pd.DataFrame, name: str) -> None:
+    def _plot_daily_stats(self, data: pd.DataFrame, name: str, ref_time: str) -> None:
+        """
+        Plot the daily delta metrics and save a figure.
+
+        :param data: data to plot
+        :param name: append this name to start of files
+        :param ref_time: reference time, from when elapsed days are measured (used for daily delta plots)
+        """
+        times = data['Times']
+
+        plt.subplot(311)
+        plt.plot(times, data['Subscribers'], 'b*')
+        plt.xlabel('Elapsed Days from {}'.format(ref_time))
+        plt.title('Daily Delta Subscriber Count ({:.0f})'.format(data.iloc[0]['Subscribers']))
+
+        plt.subplot(312)
+        plt.plot(times, data['Views'], 'r*')
+        plt.xlabel('Elapsed Days from {}'.format(ref_time))
+        plt.title('Daily Delta Number of Views ({:.0f})'.format(data.iloc[0]['Views']))
+
+        plt.subplot(313)
+        plt.plot(times, data['Stars'], 'g*')
+        plt.xlabel('Elapsed Days from {}'.format(ref_time))
+        plt.title('Daily Delta Rating ({:.2f})'.format(data.iloc[0]['Stars']))
+
+        plt.tight_layout()
+        plt.savefig('Plots/{}stats.png'.format(name))
+
+        plt.figure()
+        ax = plt.subplot(211)
+        episode_columns = [column for column in data.columns if column not in self.baseline_comic_names]
+        for episode in episode_columns:
+            times_clean, data_clean = zip(*filter(lambda x: not np.isnan(x[1]), zip(times, data[episode])))
+            plt.plot(times_clean, data_clean, '*', label=episode.split()[0])
+        plt.xlabel('Elapsed Days from {}'.format(ref_time))
+        plt.title('Daily Delta Number of Episode Likes')
+
+        # Shrink current axis by 20%
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0 + box.height * 0.25, box.width * 0.8, box.height * 0.9])
+
+        # Put a legend to the right of the current axis
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+        plt.subplot(212)
+        plt.plot(times, data['Likes'], 'b*')
+        plt.title('Daily Delta Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
+        plt.xlabel('Elapsed Days from {}'.format(ref_time))
+
+        #plt.tight_layout()
+        plt.savefig('Plots/{}likes.png'.format(name))
+
+    def _plot_stats(self, data: pd.DataFrame) -> None:
         """
         Plot the metrics and save a figure.
 
         :param data: data to plot
-        :param name: append this name to start of files
         """
-        # Daily delta mode handles times as float numbers of days rather than datetimes
-        if isinstance(data['Times'][0], float):
-            daily_delta_mode = True
-            times = data['Times']
-        else:
-            daily_delta_mode = False
-            times = [convert_time(time) for time in data['Times']]
+        times = [convert_time(time) for time in data['Times']]
 
         # Plot overall metrics
         plt.subplot(311)
         plt.plot(times, data['Subscribers'])
-
-        if daily_delta_mode:
-            plt.xlabel('Elapsed Days')
-            plt.title('Daily Delta Subscriber Count ({:.0f})'.format(data.iloc[0]['Subscribers']))
-        else:
-            plt.title('Subscriber Count ({:.0f})'.format(data.iloc[0]['Subscribers']))
+        plt.title('Subscriber Count ({:.0f})'.format(data.iloc[0]['Subscribers']))
 
         plt.subplot(312)
         plt.plot(times, data['Views'], 'r')
-
-        if daily_delta_mode:
-            plt.xlabel('Elapsed Days')
-            plt.title('Daily Delta Number of Views ({:.0f})'.format(data.iloc[0]['Views']))
-        else:
-            plt.title('Number of Views ({:.0f})'.format(data.iloc[0]['Views']))
+        plt.title('Number of Views ({:.0f})'.format(data.iloc[0]['Views']))
 
         plt.subplot(313)
         plt.plot(times, data['Stars'], 'g')
-
-        if daily_delta_mode:
-            plt.xlabel('Elapsed Days')
-            plt.title('Daily Delta Rating ({:.2f})'.format(data.iloc[0]['Stars']))
-        else:
-            plt.title('Rating ({:.2f})'.format(data.iloc[0]['Stars']))
+        plt.title('Rating ({:.2f})'.format(data.iloc[0]['Stars']))
 
         # Format plot
-        if not daily_delta_mode:
-            plt.gcf().autofmt_xdate()
-
+        plt.gcf().autofmt_xdate()
         plt.tight_layout()
-        plt.savefig('Plots/{}stats.png'.format(name))
+        plt.savefig('Plots/stats.png')
 
         plt.figure()
         plt.subplot(211)
@@ -236,28 +264,15 @@ class ComicStats:
             times_clean, data_clean = zip(*filter(lambda x: not np.isnan(x[1]), zip(times, data[episode])))
             plt.plot(times_clean, data_clean, label=episode.split()[0])
         plt.legend(loc='center left')
-
-        if daily_delta_mode:
-            plt.xlabel('Elapsed Days')
-            plt.title('Daily Delta Number of Episode Likes')
-        else:
-            plt.title('Number of Episode Likes')
+        plt.title('Number of Episode Likes')
 
         plt.subplot(212)
         plt.plot(times, data['Likes'])
+        plt.title('Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
 
-        if daily_delta_mode:
-            plt.xlabel('Elapsed Days')
-            plt.title('Daily Delta Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
-        else:
-            plt.title('Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
-
-        # Format plot
-        if not daily_delta_mode:
-            plt.gcf().autofmt_xdate()
-
+        plt.gcf().autofmt_xdate()
         plt.tight_layout()
-        plt.savefig('Plots/{}likes.png'.format(name))
+        plt.savefig('Plots/likes.png')
 
     def send_email(self) -> None:
         """
