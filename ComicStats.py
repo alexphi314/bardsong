@@ -81,8 +81,7 @@ class ComicStats:
         self.logger.info('Initializing class')
 
         # Fetch stats
-        self.subs, self.views, self.stars = self._get_stats()
-        self.likes = self._get_likes()
+        self.subs, self.views, self.stars, self.likes = self._get_stats()
 
         # Create data representation
         input_data = [dt.datetime.now(), self.subs, self.views, self.stars, sum(self.likes)]
@@ -162,7 +161,7 @@ class ComicStats:
                 )
                 self.msg.append(msg_str)
 
-    def _get_stats(self) -> Tuple[float, float, float]:
+    def _get_stats(self) -> Tuple[float, float, float, List[float]]:
         """
         Fetch the stats for the comic. Return number of subs, views, and star rating
 
@@ -178,7 +177,7 @@ class ComicStats:
         subs = convert_string(subs)
         views = convert_string(views)
 
-        return subs, views, stars
+        return subs, views, stars, self._get_likes()
 
     def _get_likes(self) -> List[float]:
         """
