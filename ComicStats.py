@@ -82,16 +82,14 @@ class ComicStats:
 
         # Fetch stats
         self.subs, self.views, self.stars = self._get_stats()
-        self.names, self.likes = self._get_likes()
+        self.likes = self._get_likes()
 
         # Create data representation
-        col_names = deepcopy(self.baseline_comic_names)
-        col_names += self.names
         input_data = [dt.datetime.now(), self.subs, self.views, self.stars, sum(self.likes)]
-        input_data += self.likes
-        self.data = pd.DataFrame(data=[input_data], columns=col_names)
+        self.data = pd.DataFrame(data=[input_data], columns=self.baseline_comic_names)
 
-        self.logger.info('Found stats: %s subscribers, %s views, %s rating', self.subs, self.views, self.stars)
+        self.logger.info('Found stats: %s subscribers, %s views, %s rating, %s total likes',
+                         self.subs, self.views, self.stars, sum(self.likes))
 
         # Load historical stats & combine with current stats
         try:
@@ -182,7 +180,7 @@ class ComicStats:
 
         return subs, views, stars
 
-    def _get_likes(self) -> Tuple[List[str], List[float]]:
+    def _get_likes(self) -> List[float]:
         """
         :return: number of likes per episode
         """
@@ -192,11 +190,8 @@ class ComicStats:
 
         names = [name.contents[0].contents[0] for name in names]
         likes = [float(like.contents[1]) for like in likes]
-        report_str = ' | '.join(['{}: {} likes'.format(episode.split()[0], like) for like, episode in zip(likes, names)])
 
-        self.logger.info('Found %s', report_str.encode('utf-8'))
-
-        return names, likes
+        return likes
 
     def _plot_daily_stats(self, data: pd.DataFrame, name: str, ref_time: str) -> None:
         """
