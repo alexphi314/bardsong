@@ -3,6 +3,7 @@ import re
 import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 import datetime as dt
 import logging
@@ -120,6 +121,9 @@ class ComicStats:
         hour_diff = [(times[0] - time).total_seconds() / 3600 for time in times]
         day_diff = [hour // 24 for hour in hour_diff]
 
+        # Filter day_diff to only include specified periods
+        SET_PERIODS = [0, 1, 7, 30, 365]
+        day_diff = [day for day in day_diff if day in SET_PERIODS]
         indices = [day_diff.index(day) for day in list(set(day_diff))]
         daily_change_data = deepcopy(self.data.iloc[indices])
 
@@ -134,7 +138,7 @@ class ComicStats:
             for column in row.index:
                 if column == 'Times':
                     diff = convert_time(ref_time) - convert_time(next_row[column])
-                    diff = diff.total_seconds()/3600/24
+                    diff = diff.total_seconds()/3600//24
 
                 else:
                     diff = row[column] - next_row[column]
@@ -142,8 +146,23 @@ class ComicStats:
                 daily_change_data.at[rindx, column] = diff
 
         daily_change_data = daily_change_data.drop(daily_change_data.tail(1).index)
+        self.msg = []
+        for period in SET_PERIODS:
+            # Do not need current data
+            if period == 0:
+                continue
 
-        self._plot_daily_stats(daily_change_data, 'daily_change_', ref_time.strftime('%Y-%m-%d'))
+            data = daily_change_data.loc[daily_change_data['Times'] == period]
+            assert len(data) <= 1
+            if len(data) > 0:
+                data = data.iloc[0]
+
+                msg_str = ('In the last {:.0f} days:\n'
+                           '\t{:.0f} subs gained\n\t{:.0f} views gained\n\tNet {:.2f} change in rating'
+                           '\n\t{:.0f} likes received\n').format(
+                    data['Times'], data['Subscribers'], data['Views'], data['Stars'], data['Likes']
+                )
+                self.msg.append(msg_str)
 
     def _get_stats(self) -> Tuple[float, float, float]:
         """
@@ -208,22 +227,8 @@ class ComicStats:
         plt.savefig('Plots/{}stats.png'.format(name))
 
         plt.figure()
-        ax = plt.subplot(211)
-        episode_columns = [column for column in data.columns if column not in self.baseline_comic_names]
-        for episode in episode_columns:
-            times_clean, data_clean = zip(*filter(lambda x: not np.isnan(x[1]), zip(times, data[episode])))
-            plt.plot(times_clean, data_clean, '*', label=episode.split()[0])
-        plt.xlabel('Elapsed Days from {}'.format(ref_time))
-        plt.title('Daily Delta Number of Episode Likes')
 
-        # Shrink current axis by 20%
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0 + box.height * 0.25, box.width * 0.8, box.height * 0.9])
-
-        # Put a legend to the right of the current axis
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        plt.subplot(212)
+        plt.subplot(111)
         plt.plot(times, data['Likes'], 'b*')
         plt.title('Daily Delta Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
         plt.xlabel('Elapsed Days from {}'.format(ref_time))
@@ -258,15 +263,7 @@ class ComicStats:
         plt.savefig('Plots/stats.png')
 
         plt.figure()
-        plt.subplot(211)
-        episode_columns = [column for column in data.columns if column not in self.baseline_comic_names]
-        for episode in episode_columns:
-            times_clean, data_clean = zip(*filter(lambda x: not np.isnan(x[1]), zip(times, data[episode])))
-            plt.plot(times_clean, data_clean, label=episode.split()[0])
-        plt.legend(loc='center left')
-        plt.title('Number of Episode Likes')
-
-        plt.subplot(212)
+        plt.subplot(111)
         plt.plot(times, data['Likes'])
         plt.title('Number of Total Likes ({:.0f})'.format(data.iloc[0]['Likes']))
 
@@ -293,12 +290,18 @@ class ComicStats:
             message['To'] = ', '.join(data['recipients'])
             message['Subject'] = 'bardsong stats for {}'.format(dt.datetime.now().strftime('%b %d %y'))
 
+            txt = MIMEText('\n'.join(self.msg))
+            message.attach(txt)
+
             files = os.listdir('Plots')
-            files.sort(key=lambda x: 'daily' in x)
+            files.sort(key=lambda x: 'likes' in x)
             for file in files:
-                with open('Plots/'+file, 'rb') as fin:
-                    img = MIMEImage(fin.read(), name=file)
-                    message.attach(img)
+                if '.png' in file:
+                    with open('Plots/'+file, 'rb') as fin:
+                        img = MIMEImage(fin.read(), name=file)
+                        message.attach(img)
+
+
 
             server.sendmail(
                 os.environ['USERNAME'], data['recipients'], message.as_string()
