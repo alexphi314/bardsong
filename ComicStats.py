@@ -154,10 +154,11 @@ class ComicStats:
             if len(data) > 0:
                 data = data.iloc[0]
 
-                msg_str = ('In the last {:.0f} days:\n'
+                msg_str = ('In the last {:.0f} day{}:\n'
                            '\t{:.0f} subs gained\n\t{:.0f} views gained\n\tNet {:.2f} change in rating'
                            '\n\t{:.0f} likes received\n').format(
-                    data['Times'], data['Subscribers'], data['Views'], data['Stars'], data['Likes']
+                    data['Times'], '' if data['Times'] == 1 else 's', data['Subscribers'],
+                    data['Views'], data['Stars'], data['Likes']
                 )
                 self.msg.append(msg_str)
 
