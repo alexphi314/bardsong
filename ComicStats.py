@@ -120,29 +120,27 @@ class ComicStats:
 
         # Filter day_diff to only include specified periods
         SET_PERIODS = [0, 1, 7, 30, 365]
-        day_diff = [day for day in day_diff if day in SET_PERIODS]
-        indices = [day_diff.index(day) for day in list(set(day_diff))]
+        narrowed_day_diff = [day for day in day_diff if day in SET_PERIODS]
+        indices = [day_diff.index(day) for day in list(set(narrowed_day_diff))]
         daily_change_data = deepcopy(self.data.iloc[indices])
 
         # Format daily change data
         rows = daily_change_data.index
-        ref_time = daily_change_data.iloc[indices[0]]['Times']
+        ref_row = daily_change_data.iloc[0]
         for (rindx, row), indx in zip(daily_change_data.iterrows(), range(0, len(rows))):
-            if indx == len(rows) - 1:
-                break
 
-            next_row = daily_change_data.iloc[indx+1]
             for column in row.index:
                 if column == 'Times':
-                    diff = convert_time(ref_time) - convert_time(next_row[column])
+                    diff = convert_time(ref_row['Times']) - convert_time(row[column])
                     diff = diff.total_seconds()/3600//24
 
                 else:
-                    diff = row[column] - next_row[column]
+                    diff = ref_row[column] - row[column]
 
                 daily_change_data.at[rindx, column] = diff
 
-        daily_change_data = daily_change_data.drop(daily_change_data.tail(1).index)
+        # Drop the first row (it corresponds to current time)
+        daily_change_data = daily_change_data.drop(daily_change_data.head(1).index)
         self.msg = []
         for period in SET_PERIODS:
             # Do not need current data
