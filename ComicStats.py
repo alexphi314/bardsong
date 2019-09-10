@@ -182,9 +182,30 @@ class ComicStats:
         """
         :return: number of likes per episode
         """
+        # Get list of pages
+        pages = []
         soup = BeautifulSoup(self.resp.text, 'html.parser')
-        likes = soup.findAll('ul', {'id': '_listUl'})[0].findAll('span', {'class': 'like_area _likeitArea'})
-        names = soup.findAll('ul', {'id': '_listUl'})[0].findAll('span', {'class': 'subj'})
+        paginate_links = soup.findAll('div', {'class': 'paginate'})[0].contents
+        for link in paginate_links:
+            try:
+                if link.attrs['href'] == '#':
+                    pages.append(self.resp.text)
+                else:
+                    pages.append(requests.get('https://www.webtoons.com{}'.format(link.attrs['href'])).text)
+            except AttributeError:
+                pass
+
+        # Loop through each page storing like info
+        likes = []
+        names = []
+        for page in pages:
+            soup = BeautifulSoup(page, 'html.parser')
+            page_likes = soup.findAll('ul', {'id': '_listUl'})[0].findAll('span', {'class': 'like_area _likeitArea'})
+            page_names = soup.findAll('ul', {'id': '_listUl'})[0].findAll('span', {'class': 'subj'})
+
+            # Append info
+            likes += page_likes
+            names += page_names
 
         names = [name.contents[0].contents[0] for name in names]
         likes = [float(like.contents[1]) for like in likes]
