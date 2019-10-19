@@ -70,7 +70,7 @@ class ComicStats:
 
         # Set up logging
         self.logger = logging.getLogger('ComicStats')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         fh = logging.FileHandler(log_file, mode='a')
         ch = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s | %(message)s')
@@ -78,7 +78,6 @@ class ComicStats:
         fh.setFormatter(formatter)
         self.logger.addHandler(ch)
         self.logger.addHandler(fh)
-        self.logger.info('Initializing class')
 
         # Fetch stats
         self.subs, self.views, self.stars, self.likes = self._get_stats()
