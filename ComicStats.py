@@ -207,7 +207,7 @@ class ComicStats:
             names += page_names
 
         names = [name.contents[0].contents[0] for name in names]
-        likes = [float(like.contents[1]) for like in likes]
+        likes = [float(like.contents[1].replace(',', '')) for like in likes]
 
         return likes
 
